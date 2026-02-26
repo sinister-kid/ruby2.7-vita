@@ -1,4 +1,3 @@
-#include "vita_mem_impl.h"
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/clib.h> 
@@ -7,6 +6,9 @@
 #include <errno.h>
 
 #include <stdint.h>
+
+#include "vita_mem_impl.h"
+#include "dlog.h"
 
 #ifdef __vita__
 

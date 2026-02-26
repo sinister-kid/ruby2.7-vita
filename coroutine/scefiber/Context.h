@@ -5,7 +5,7 @@
 #include <setjmp.h>
 #include <psp2/fiber.h>
 #include <stdint.h>
-
+#include "vita_mem_impl.h"
 
 #define SCE_FIBER_CONTEXT_MINIMUM_SIZE  (512)
 #define SCE_FIBER_ALIGNMENT (8)
