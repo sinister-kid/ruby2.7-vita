@@ -6,6 +6,31 @@
 ![](https://github.com/ruby/ruby/workflows/Ubuntu/badge.svg)
 ![](https://github.com/ruby/ruby/workflows/Windows/badge.svg)
 
+# About PSVita port
+
+To build this some version of Ruby already installed in yout system is needed (preferably ruby2.7) and autoconf2.69 is highly recommended, if not a must.
+
+```shell
+# Autoconf and configure project
+autoconf2.69
+./configure-vita
+
+# Compile code, elf and static lib
+make
+
+# Instal to VitaSDK if needed
+make install
+```
+
+Check "configure-vita" bash script for some configure options and use it instead of regular "./configure" command.\
+Extensions can be selected in ext/Setup.vita, not all will compile.
+SceFiber as Coroutine backend is the default option, this can be changed to "copy" backend in configure-vita.\
+Encondings are hard-limited to builtin ones in enc/make_encmake.rb script. To include more of them edit the NOENC_PATTERNS and NOTRANS_PATTERNS arrays in that file, no need to further edits to "common.mk".
+
+A release VPK to try the ruby elf for the lazy ones will be added soon.
+
+- Credits to [LiEnby](https://github.com/LiEnby) for the [ruby1.8 port](https://github.com/LiEnby/ruby-vita), which served as a base to start with, and some code is still present.
+
 # What's Ruby
 
 Ruby is an interpreted object-oriented programming language often
