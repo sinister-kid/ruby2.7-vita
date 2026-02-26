@@ -32,6 +32,11 @@
 #ifdef RUBY_DEBUG_ENV
 #include <stdlib.h>
 #endif
+#ifdef __vita__
+//unsigned int _newlib_heap_size = 192 * 1024 * 1024;
+//unsigned int sceLibcHeapSize = 32 * 1024 * 1024;
+#endif
+
 
 int
 main(int argc, char **argv)
@@ -40,9 +45,13 @@ main(int argc, char **argv)
     ruby_set_debug_option(getenv("RUBY_DEBUG"));
 #endif
 #ifdef HAVE_LOCALE_H
-    setlocale(LC_CTYPE, "");
+    setlocale(LC_CTYPE, "C");
 #endif
-
+#ifdef __vita__
+    const char* new_argv[] = { "main", "ux0:/data/ruby/fiber_test.rb" };
+	argv = (char**)new_argv;
+	argc = 2;
+#endif
     ruby_sysinit(&argc, &argv);
     {
 	RUBY_INIT_STACK;

@@ -672,6 +672,10 @@ rb_define_class(const char *name, VALUE super)
 		     name, rb_obj_class(klass));
 	}
 	if (rb_class_real(RCLASS_SUPER(klass)) != super) {
+#ifdef MKXPZ_PATCH
+// RPG Maker compatibility
+goto override_class;
+#endif
 	    rb_raise(rb_eTypeError, "superclass mismatch for class %s", name);
 	}
 
@@ -679,6 +683,9 @@ rb_define_class(const char *name, VALUE super)
         rb_vm_add_root_module(id, klass);
 	return klass;
     }
+#ifdef MKXPZ_PATCH
+override_class:
+#endif
     if (!super) {
 	rb_raise(rb_eArgError, "no super class for `%s'", name);
     }
@@ -743,6 +750,10 @@ rb_define_class_id_under(VALUE outer, ID id, VALUE super)
 		     outer, rb_id2str(id), rb_obj_class(klass));
 	}
 	if (rb_class_real(RCLASS_SUPER(klass)) != super) {
+#ifdef MKXPZ_PATCH
+// RPG Maker compatibility
+goto override_class;
+#endif
 	    rb_raise(rb_eTypeError, "superclass mismatch for class "
 		     "%"PRIsVALUE"::%"PRIsVALUE""
 		     " (%"PRIsVALUE" is given but was %"PRIsVALUE")",
@@ -753,6 +764,9 @@ rb_define_class_id_under(VALUE outer, ID id, VALUE super)
 
 	return klass;
     }
+#ifdef MKXPZ_PATCH
+override_class:
+#endif
     if (!super) {
 	rb_raise(rb_eArgError, "no super class for `%"PRIsVALUE"::%"PRIsVALUE"'",
 		 rb_class_path(outer), rb_id2str(id));

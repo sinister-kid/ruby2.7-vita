@@ -25,6 +25,8 @@
 #include <sys/types.h>
 #include <ctype.h>
 
+#include "dlog.h"
+
 #ifdef __hpux
 #include <sys/pstat.h>
 #endif
@@ -44,7 +46,11 @@
 # include <sys/param.h>
 #endif
 #ifndef MAXPATHLEN
-# define MAXPATHLEN 1024
+# ifdef __vita
+#  define MAXPATHLEN 256
+# else
+#  define MAXPATHLEN 1024
+# endif
 #endif
 #ifndef O_ACCMODE
 # define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
@@ -588,6 +594,7 @@ ruby_init_loadpath(void)
     VALUE load_path, archlibdir = 0;
     ID id_initial_load_path_mark;
     const char *paths = ruby_initial_load_paths;
+		DLOG("%s", paths);
 #if defined(LOAD_RELATIVE) || defined(__MACH__)
     VALUE libruby_path = runtime_libruby_path();
 # if defined(__MACH__)
@@ -1785,8 +1792,9 @@ process_options(int argc, char **argv, ruby_cmdline_options_t *opt)
     }
 
     rb_warning_category_update(opt->warn.mask, opt->warn.set);
-
+#ifndef MKXPZ_PATCH
     Init_ext();		/* load statically linked extensions before rubygems */
+#endif
     if (opt->features.set & FEATURE_BIT(gems)) {
 	rb_define_module("Gem");
         if (opt->features.set & FEATURE_BIT(did_you_mean)) {

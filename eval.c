@@ -55,7 +55,8 @@ extern ID ruby_static_id_cause;
 int
 ruby_setup(void)
 {
-    enum ruby_tag_type state;
+    //enum ruby_tag_type state;
+    int state;
 
     if (GET_VM())
 	return 0;

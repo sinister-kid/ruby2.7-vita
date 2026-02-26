@@ -145,6 +145,38 @@ int setregid(rb_gid_t rgid, rb_gid_t egid);
 #endif
 #endif
 
+#ifdef __vita__
+pid_t getppid(void) {
+    errno = ENOSYS;
+    rb_raise(rb_eNotImpError, "getppid() function does not exist on VITA platform.");
+    return -1;
+}
+
+int execv(const char *path, char *const argv[]) {
+    errno = ENOSYS;
+    rb_raise(rb_eNotImpError, "execv() function does not exist on VITA platform.");
+    return -1;
+}
+
+int execl(const char *path, const char *arg, ...) {
+    errno = ENOSYS;
+    rb_raise(rb_eNotImpError, "execl() function does not exist on VITA platform.");
+    return -1;
+}
+
+FILE *popen(const char *command, const char *type) {
+    errno = ENOTSUP;
+    rb_raise(rb_eNotImpError, "popen() function does not exist on VITA platform.");
+    return NULL;
+}
+
+int pclose(FILE *stream) {
+    errno = ENOTSUP;
+    rb_raise(rb_eNotImpError, "pclose() function does not exist on VITA platform.");
+    return -1;
+}
+#endif
+
 static void check_uid_switch(void);
 static void check_gid_switch(void);
 static int exec_async_signal_safe(const struct rb_execarg *, char *, size_t);
@@ -957,10 +989,14 @@ pst_wcoredump(VALUE st)
 static rb_pid_t
 do_waitpid(rb_pid_t pid, int *st, int flags)
 {
+    
 #if defined HAVE_WAITPID
     return waitpid(pid, st, flags);
 #elif defined HAVE_WAIT4
     return wait4(pid, st, flags, NULL);
+#elif defined __vita__
+    errno = ECHILD;
+    return -1;
 #else
 #  error waitpid or wait4 is required.
 #endif
@@ -1656,6 +1692,10 @@ proc_exec_cmd(const char *prog, VALUE argv_str, VALUE envp_str)
 static int
 proc_exec_sh(const char *str, VALUE envp_str)
 {
+#ifdef __vita__
+    errno = ENOSYS;
+    return errno;
+#endif
     const char *s;
 
     s = str;

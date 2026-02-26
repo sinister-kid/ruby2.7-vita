@@ -15,14 +15,26 @@
 #include "eval_intern.h"
 #include "mjit.h"
 
+#include "dlog.h"
+
 #include COROUTINE_H
 
 #ifndef _WIN32
-#include <unistd.h>
-#include <sys/mman.h>
+# include <unistd.h>
+# ifndef __vita__
+#  include <sys/mman.h>
+# endif
 #endif
 
+#ifndef DEBUG
+#define fprintf(stderr, ...)
+#endif
 static const int DEBUG = 0;
+
+#ifdef __vita__
+#include <malloc.h>
+#include "vita_mem_impl.h"
+#endif /* __vita__ */
 
 #define RB_PAGE_SIZE (pagesize)
 #define RB_PAGE_MASK (~(RB_PAGE_SIZE - 1))
@@ -40,7 +52,9 @@ static VALUE rb_cFiberPool;
 
 // Defined in `coroutine/$arch/Context.h`:
 #ifdef COROUTINE_LIMITED_ADDRESS_SPACE
+#ifndef __vita__
 #define FIBER_POOL_ALLOCATION_FREE
+#endif
 #define FIBER_POOL_INITIAL_SIZE 8
 #define FIBER_POOL_ALLOCATION_MAXIMUM_SIZE 32
 #else
@@ -414,6 +428,15 @@ fiber_pool_allocate_memory(size_t * count, size_t stride)
         else {
             return base;
         }
+#elif defined(__vita__)
+        DLOG("fiber_pool_allocate_memory: count=%zu, stride=%zu", count, stride);
+        void * base = vita_mmap(NULL, (*count)*stride);
+
+        if (base == MAP_FAILED) {
+            *count = (*count) >> 1;
+            continue;
+        }
+        return base;
 #else
         errno = 0;
         void * base = mmap(NULL, (*count)*stride, PROT_READ | PROT_WRITE, FIBER_STACK_FLAGS, -1, 0);
@@ -443,12 +466,17 @@ fiber_pool_expand(struct fiber_pool * fiber_pool, size_t count)
     size_t size = fiber_pool->size;
     size_t stride = size + RB_PAGE_SIZE;
 
+    DLOG("fiber_pool_expand: current size=%zu", size);
+    DLOG("fiber_pool_expand: count=%zu, stride=%zu", count, stride);
+    
     // Allocate the memory required for the stacks:
     void * base = fiber_pool_allocate_memory(&count, stride);
 
     if (base == NULL) {
+        DLOG("fiber_pool_allocate_memory failed");
         rb_raise(rb_eFiberError, "can't alloc machine stack to fiber (%"PRIuSIZE" x %"PRIuSIZE" bytes): %s", count, size, ERRNOMSG);
     }
+    DLOG("fiber_pool_allocate_memory success: %p, count now=%zu", base, count);
 
     struct fiber_pool_vacancy * vacancies = fiber_pool->vacancies;
     struct fiber_pool_allocation * allocation = RB_ALLOC(struct fiber_pool_allocation);
@@ -478,6 +506,11 @@ fiber_pool_expand(struct fiber_pool * fiber_pool, size_t count)
 
         if (!VirtualProtect(page, RB_PAGE_SIZE, PAGE_READWRITE | PAGE_GUARD, &old_protect)) {
             VirtualFree(allocation->base, 0, MEM_RELEASE);
+            rb_raise(rb_eFiberError, "can't set a guard page: %s", ERRNOMSG);
+        }
+#elif defined(__vita__)
+        if (vita_mprotect(page, RB_PAGE_SIZE, 0) < 0) {
+            vita_munmap(allocation->base, count*stride);
             rb_raise(rb_eFiberError, "can't set a guard page: %s", ERRNOMSG);
         }
 #else
@@ -513,6 +546,7 @@ fiber_pool_expand(struct fiber_pool * fiber_pool, size_t count)
     fiber_pool->vacancies = vacancies;
     fiber_pool->count += count;
 
+    DLOG("fiber_pool_expand done");
     return allocation;
 }
 
@@ -559,6 +593,8 @@ fiber_pool_allocation_free(struct fiber_pool_allocation * allocation)
 
 #ifdef _WIN32
     VirtualFree(allocation->base, 0, MEM_RELEASE);
+#elif defined(__vita__)
+    vita_munmap(allocation->base, allocation->stride * allocation->count);
 #else
     munmap(allocation->base, allocation->stride * allocation->count);
 #endif
@@ -708,6 +744,8 @@ fiber_initialize_coroutine(rb_fiber_t *fiber, size_t * vm_stack_size)
     vm_stack = fiber_pool_stack_alloca(&fiber->stack, fiber_pool->vm_stack_size);
     *vm_stack_size = fiber_pool->vm_stack_size;
 
+    DLOG("VM stack before start=%p size=%zu fiber_base=%p fiber_current=%p fiber_available=%zu",
+       sec->machine.stack_start, sec->machine.stack_maxsize, fiber->stack.base, fiber->stack.current, fiber->stack.available);
 #ifdef COROUTINE_PRIVATE_STACK
     coroutine_initialize(&fiber->context, fiber_entry, fiber_pool_stack_base(&fiber->stack), fiber->stack.available, sec->machine.stack_start);
     // The stack for this execution context is still the main machine stack, so don't adjust it.
@@ -723,7 +761,12 @@ fiber_initialize_coroutine(rb_fiber_t *fiber, size_t * vm_stack_size)
     // The stack for this execution context is the one we allocated:
     sec->machine.stack_start = fiber->stack.current;
     sec->machine.stack_maxsize = fiber->stack.available;
+    DLOG("VM stack after  start=%p size=%zu fiber_base=%p fiber_current=%p fiber_available=%zu",
+       sec->machine.stack_start, sec->machine.stack_maxsize, fiber->stack.base, fiber->stack.current, fiber->stack.available);
 #endif
+
+    DLOG("VM stack after  start=%p size=%zu fiber_base=%p fiber_current=%p fiber_available=%zu",
+       sec->machine.stack_start, sec->machine.stack_maxsize, fiber->stack.base, fiber->stack.current, fiber->stack.available);
 
     return vm_stack;
 }
@@ -920,7 +963,9 @@ cont_free(void *ptr)
     else {
         rb_fiber_t *fiber = (rb_fiber_t*)cont;
         coroutine_destroy(&fiber->context);
-        fiber_stack_release(fiber);
+        //if (!fiber_is_root_p(fiber)) { /*CHECKME*/
+            fiber_stack_release(fiber);
+        //}
     }
 
     RUBY_FREE_UNLESS_NULL(cont->saved_vm_stack.ptr);
@@ -1869,6 +1914,18 @@ root_fiber_alloc(rb_thread_t *th)
     fiber->stack = fiber_pool_stack_acquire(&shared_fiber_pool);
     coroutine_initialize_main(&fiber->context, fiber_pool_stack_base(&fiber->stack), fiber->stack.available, th->ec->machine.stack_start);
 #else
+#ifdef __vita__
+    void *base = NULL;
+    size_t size = 0;
+    vita_get_thread_stack_bounds(&base, &size);
+    if (base && size > 0) {
+        rb_execution_context_t *ec = th->ec;
+        // The f... stack bases and starts and ends
+        ec->machine.stack_start = (VALUE *)((char*)base + size); 
+        ec->machine.stack_maxsize = size;
+        ec->machine.stack_end = (VALUE *)base;
+    }
+#endif
     coroutine_initialize_main(&fiber->context);
 #endif
 
@@ -2424,18 +2481,28 @@ Init_Cont(void)
     rb_thread_t *th = GET_THREAD();
     size_t vm_stack_size = th->vm->default_params.fiber_vm_stack_size;
     size_t machine_stack_size = th->vm->default_params.fiber_machine_stack_size;
-    size_t stack_size = machine_stack_size + vm_stack_size;
+    size_t stack_size;
 
-#ifdef _WIN32
+#if defined(__vita__) && defined(USE_SCEFIBER_COROUTINE)
+    machine_stack_size = vita_adjust_fiber_machine_stack_size(machine_stack_size);
+    DLOG("vita fiber stack adjusted: machine=%zu vm=%zu", machine_stack_size, vm_stack_size);
+#endif
+    stack_size = machine_stack_size + vm_stack_size;
+
+#if defined(_WIN32)
     SYSTEM_INFO info;
     GetSystemInfo(&info);
     pagesize = info.dwPageSize;
-#else /* not WIN32 */
+#elif defined(__vita__)
+    pagesize = PAGE_SIZE;
+#else /* not WIN32 nor vita */
     pagesize = sysconf(_SC_PAGESIZE);
 #endif
     SET_MACHINE_STACK_END(&th->ec->machine.stack_end);
 
+    DLOG("Calling fiber_pool_initialize with stack_size: %zu", stack_size);
     fiber_pool_initialize(&shared_fiber_pool, stack_size, FIBER_POOL_INITIAL_SIZE, vm_stack_size);
+    DLOG("fiber_pool_initialize done");
 
     char * fiber_shared_fiber_pool_free_stacks = getenv("RUBY_SHARED_FIBER_POOL_FREE_STACKS");
     if (fiber_shared_fiber_pool_free_stacks) {
@@ -2452,7 +2519,7 @@ Init_Cont(void)
     rb_define_method(rb_cFiber, "to_s", fiber_to_s, 0);
     rb_define_alias(rb_cFiber, "inspect", "to_s");
 
-#ifdef RB_EXPERIMENTAL_FIBER_POOL
+#ifdef RB_EXPERIMENTAL_FIBER_POOL /*CHECKME*/
     rb_cFiberPool = rb_define_class("Pool", rb_cFiber);
     rb_define_alloc_func(rb_cFiberPool, fiber_pool_alloc);
     rb_define_method(rb_cFiberPool, "initialize", rb_fiber_pool_initialize, -1);
@@ -2475,9 +2542,13 @@ ruby_Init_Continuation_body(void)
 void
 ruby_Init_Fiber_as_Coroutine(void)
 {
+    DLOG("Calling ruby_Init_Fiber_as_Coroutine");
     rb_define_method(rb_cFiber, "transfer", rb_fiber_m_transfer, -1);
     rb_define_method(rb_cFiber, "alive?", rb_fiber_alive_p, 0);
     rb_define_singleton_method(rb_cFiber, "current", rb_fiber_s_current, 0);
+#ifdef USE_SCEFIBER_COROUTINE
+    Init_SceFiber();
+#endif
 }
 
 RUBY_SYMBOL_EXPORT_END

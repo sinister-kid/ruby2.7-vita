@@ -1646,6 +1646,10 @@ rb_num2char_inline(VALUE x)
 #define USHORT2NUM(x) RB_INT2FIX(x)
 #define NUM2CHR(x) RB_NUM2CHR(x)
 #define CHR2FIX(x) RB_CHR2FIX(x)
+#ifndef SHORT2NUM
+#define SHORT2NUM(x) RB_INT2FIX((short)(x))
+#endif
+
 
 #if SIZEOF_LONG < SIZEOF_VALUE
 #define RB_ST2FIX(h) RB_LONG2FIX((long)((h) > 0 ? (h) & (unsigned long)-1 >> 2 : (h) | ~((unsigned long)-1 >> 2)))

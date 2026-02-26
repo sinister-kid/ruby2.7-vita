@@ -431,8 +431,9 @@ void rb_sparc_flush_register_windows(void);
 #  define FLUSH_REGISTER_WINDOWS ((void)0)
 #endif
 
-#if defined(DOSISH)
+#if defined(DOSISH) || defined(__vita__)
 #define PATH_SEP ";"
+#define DOSISH_DRIVE_LETTER
 #else
 #define PATH_SEP ":"
 #endif

@@ -15,9 +15,9 @@ CONFIG["MAKEDIRS"] ||= '$(MINIRUBY) -run -e mkdir -- -p'
 BUILTIN_ENCS = []
 BUILTIN_TRANSES = []
 ENC_PATTERNS = []
-NOENC_PATTERNS = []
+NOENC_PATTERNS = ['big5','cesu_8','cp949','emacs_mule','euc_jp','euc_kr','euc_tw','gb2312','gb18030','gbk','iso_8859_1','iso_8859_2','iso_8859_3','iso_8859_4','iso_8859_5','iso_8859_6','iso_8859_7','iso_8859_8','iso_8859_9','iso_8859_10','iso_8859_11','iso_8859_13','iso_8859_14','iso_8859_15','iso_8859_16','koi8_r','koi8_u','shift_jis','utf_16be','utf_16le','utf_32be','utf_32le','windows_31j','windows_1250','windows_1251','windows_1252','windows_1253','windows_1254','windows_1257']
 TRANS_PATTERNS = []
-NOTRANS_PATTERNS = []
+NOTRANS_PATTERNS = ['single_byte', 'escape', 'big5','chinese','ebcdic','japanese','korean','cesu_8','emoji','emoji_iso2022_kddi','emoji_sjis_docomo','emoji_sjis_kddi','emoji_sjis_softbank','gb18030','gbk','iso2022','japanese_euc','japanese_sjis','utf8_mac','utf_16_32']
 module_type = :dynamic
 
 until ARGV.empty?
@@ -52,6 +52,9 @@ end
 
 ALPHANUMERIC_ORDER = proc {|e| e.scan(/(\d+)|(\D+)/).map {|n,a| a||[n.size,n.to_i]}.flatten}
 def target_encodings
+  if ENV['MINIMAL_ENCS'] == 'yes'
+    return ["encdb"], {"encdb"=>[]}
+  end
   encs = Dir.open($srcdir) {|d| d.grep(/.+\.c\z/)} - BUILTIN_ENCS - ["mktable.c", "encinit.c"]
   encs.each {|e| e.chomp!(".c")}
   encs.reject! {|e| !ENC_PATTERNS.any? {|p| File.fnmatch?(p, e)}} if !ENC_PATTERNS.empty?
@@ -86,6 +89,7 @@ def target_encodings
 end
 
 def target_transcoders
+  return [], ["trans/transdb"] if ENV['MINIMAL_ENCS'] == 'yes'
   atrans = []
   trans = Dir.open($srcdir+"/trans") {|d|
     d.select {|e|
@@ -119,6 +123,11 @@ end
 MODULE_TYPE = module_type
 ENCS, ENC_DEPS = target_encodings
 ATRANS, TRANS = target_transcoders
+
+ENCS ||= []
+ENC_DEPS ||= {}
+ATRANS ||= []
+TRANS ||= []
 
 if File.exist?(depend = File.join($srcdir, "depend"))
   if ERB.instance_method(:initialize).parameters.assoc(:key) # Ruby 2.6+

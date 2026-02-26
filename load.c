@@ -21,9 +21,13 @@ static VALUE ruby_dln_librefs;
 #endif
 
 static const char *const loadable_ext[] = {
+#ifdef __vita__
+    ".rb",
+#else
     ".rb", DLEXT,
 #ifdef DLEXT2
     DLEXT2,
+#endif
 #endif
     0
 };

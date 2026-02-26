@@ -101,9 +101,21 @@ AC_SUBST(RUBYW_BASE_NAME)
 AC_SUBST(RUBY_VERSION_NAME, '${RUBY_BASE_NAME}-${ruby_version}')
 
 AC_CANONICAL_TARGET
+AS_CASE([$target],
+  [*vita*], [target_os="vita"]
+)
 test x"$target_alias" = x &&
 target_os=`echo $target_os | sed 's/linux-gnu$/linux/;s/linux-gnu/linux-/'`
 ac_install_sh='' # unusable for extension libraries.
+
+PLATFORMOBJS=''
+AS_CASE([$target],
+  [*vita*], [
+		target_os="vita"
+		PLATFORMOBJS='vita_mem_impl.$(OBJEXT)'
+	]
+)
+AC_SUBST(PLATFORMOBJS)
 
 AC_ARG_WITH(os-version-style,
 	AS_HELP_STRING([--with-os-version-style=TYPE],
@@ -1046,6 +1058,15 @@ main()
 			ac_cv_func___builtin_setjmp=no
 		])
 		],
+[*vita*],[	LIBS="-lm $LIBS"
+		rb_cv_stack_grow_dir_arm=-1
+		ac_cv_func_fork=no
+		ac_cv_func_fork_works=no
+		ac_cv_func_vfork=no
+		ac_cv_func_setpgid=no
+		ac_cv_func_setsid=no
+		ac_cv_func_setpgrp=no
+		],
 [	LIBS="-lm $LIBS"])
 : ${ORIG_LIBS=$LIBS}
 
@@ -1802,8 +1823,11 @@ AC_FUNC_FORK
 AC_CHECK_FUNCS(__syscall)
 AC_CHECK_FUNCS(_longjmp)		# used for AC_ARG_WITH(setjmp-type)
 # we don't use _setjmp if _longjmp doesn't exist.
-test x$ac_cv_func__longjmp = xno && ac_cv_func__setjmp=no
-AC_CHECK_FUNCS(arc4random_buf)
+test x$ac_cv_func__longjmp = xno && ac_cv_func__setjmp=
+AS_CASE(["$target_os"],[*vita*],[], [
+	AC_CHECK_FUNCS(arc4random_buf)
+	]
+)
 AC_CHECK_FUNCS(atan2l atan2f)
 AC_CHECK_FUNCS(chroot)
 AC_CHECK_FUNCS(chsize)
@@ -2323,6 +2347,9 @@ AC_ARG_WITH(coroutine,
 AS_CASE([$rb_cv_coroutine], [yes|''], [
     AC_MSG_CHECKING(native coroutine implementation for ${target_cpu}-${target_os})
     AS_CASE(["$target_cpu-$target_os"],
+	    [arm-vita*], [
+            rb_cv_coroutine=scefiber
+        ],
         [x*64-darwin*], [
             rb_cv_coroutine=amd64
         ],
@@ -2371,7 +2398,7 @@ AS_CASE([$rb_cv_coroutine], [yes|''], [
 ])
 COROUTINE_H=coroutine/$rb_cv_coroutine/Context.h
 AS_CASE([$rb_cv_coroutine],
-    [copy|ucontext], [
+    [copy|ucontext|scefiber], [
         COROUTINE_SRC=coroutine/$rb_cv_coroutine/Context.c
     ],
     [*], [
@@ -2381,6 +2408,11 @@ AS_CASE([$rb_cv_coroutine],
 AC_DEFINE_UNQUOTED(COROUTINE_H, ["$COROUTINE_H"])
 AC_SUBST(X_COROUTINE_H, [$COROUTINE_H])
 AC_SUBST(X_COROUTINE_SRC, [$COROUTINE_SRC])
+
+AS_IF([test "x$rb_cv_coroutine" = "xscefiber"], [
+  AC_DEFINE([USE_SCEFIBER_COROUTINE], [1], [Use SceFiber as coroutine backend])
+	LIBS="-lSceFiber_stub $LIBS"
+])
 
 AS_IF([test x"$enable_pthread" = xyes], [
     for pthread_lib in thr pthread pthreads c c_r root; do
@@ -2604,7 +2636,13 @@ AS_CASE(["$target_os"],
 	with_dln_a_out=yes
     ], [
 	LDFLAGS="$LDFLAGS -rdynamic"
-    ])])
+    ])],
+[*vita*], [
+	LDFLAGS="-Wl,-q $LDFLAGS"
+  	with_dln_a_out=no
+  	with_dln_dlopen=no
+	enable_rpath=no
+])
 LIBEXT=a
 
 AC_SUBST(DLDFLAGS)dnl
@@ -2645,7 +2683,7 @@ AS_IF([test "$with_dln_a_out" != yes], [
       # mkmf.rb's have_header() to fail if the desired resource happens to be
       # installed in the /usr/local tree.
       RUBY_APPEND_OPTION(CCDLFLAGS, -fno-common)],
-    [bsdi*|cygwin*|mingw*|aix*|interix*], [ ],
+    [bsdi*|cygwin*|mingw*|aix*|interix*|*vita*], [ ],
     [
       RUBY_APPEND_OPTION(CCDLFLAGS, -fPIC)])
   ], [
@@ -2818,6 +2856,14 @@ AS_IF([test "${LDSHAREDXX}" = ""], [
 	    ])
 ])
 AS_CASE([${RPATHFLAG}],[*'%1$'*],[: ${LIBPATHFLAG=' -L%1$-s'}],[: ${LIBPATHFLAG=' -L%s'}])
+
+AS_CASE(["$target_os"],
+[*vita*], [
+		rb_cv_dlopen=no
+		RPATHFLAG=""
+		LDSHAREDXX=""
+		LDSHARED="${LD} -non_shared"
+])
 
 AC_SUBST(LINK_SO)
 AC_SUBST(LIBPATHFLAG)
@@ -3450,8 +3496,8 @@ AC_ARG_ENABLE(jit-support,
          AS_IF([test x"$enable_jit_support" = "xyes"],
                  [AC_DEFINE(USE_MJIT, 1)],
                  [AC_DEFINE(USE_MJIT, 0)])],
-        [MJIT_SUPPORT=yes
-         AC_DEFINE(USE_MJIT, 1)])
+        [MJIT_SUPPORT=no
+         AC_DEFINE(USE_MJIT, 0)])
 
 AC_SUBST(MJIT_SUPPORT)
 
@@ -3462,6 +3508,14 @@ AC_ARG_ENABLE(install-static-library,
 	    [INSTALL_STATIC_LIBRARY=no],
 	    [INSTALL_STATIC_LIBRARY=yes]))
 AC_SUBST(INSTALL_STATIC_LIBRARY)
+
+AC_ARG_ENABLE([libruby-with-exts],
+  [AS_HELP_STRING([--enable-libruby-with-exts],
+    [include extensions in libruby archive @<:@default=yes@:>@])],
+  [LIBRUBY_WITH_EXTENSIONS="$enableval"],
+  [LIBRUBY_WITH_EXTENSIONS=yes])
+AC_SUBST([LIBRUBY_WITH_EXTENSIONS])
+
 
 AS_IF([test "$rb_with_pthread" = "yes"], [
     THREAD_MODEL=pthread

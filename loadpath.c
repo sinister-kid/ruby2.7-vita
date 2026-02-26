@@ -29,8 +29,29 @@
 #ifndef RUBY_EXEC_PREFIX
 #error RUBY_EXEC_PREFIX must be defined
 #endif
+#endif
+
+#ifdef VITA_RUNTIME_PREFIXES
+#undef RUBY_EXEC_PREFIX
+#define RUBY_EXEC_PREFIX "app0:"
+#undef RUBY_LIB_PREFIX
+#define RUBY_LIB_PREFIX "ux0:data/ruby"
+#endif
+
+#ifdef VITA_EXEC_PREFIX
+#undef RUBY_EXEC_PREFIX
+#define RUBY_EXEC_PREFIX VITA_EXEC_PREFIX
+#endif
+
+#ifdef VITA_LIB_PREFIX
+#undef RUBY_LIB_PREFIX
+#define RUBY_LIB_PREFIX VITA_LIB_PREFIX
+#else
+#ifndef VITA_RUNTIME_PREFIXES
 #define RUBY_LIB_PREFIX RUBY_EXEC_PREFIX"/lib/ruby"
 #endif
+#endif
+
 #ifndef RUBY_SITE_LIB
 #define RUBY_SITE_LIB RUBY_LIB_PREFIX"/site_ruby"
 #endif

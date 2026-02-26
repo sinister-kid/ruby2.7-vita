@@ -9,6 +9,13 @@
 
 #include <stdint.h>
 
+#ifdef __vita__
+#include <machine/setjmp.h>
+#define _setjmp setjmp
+#define _longjmp longjmp
+#include <unistd.h> //ssize_t
+#endif
+
 // http://gcc.gnu.org/onlinedocs/gcc/Alternate-Keywords.html
 #ifndef __GNUC__
 #define __asm__ asm

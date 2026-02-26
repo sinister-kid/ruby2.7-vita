@@ -62,6 +62,17 @@ ruby_atomic_compare_and_swap(rb_atomic_t *ptr, rb_atomic_t cmp,
 }
 #endif
 
+#ifdef __vita__
+int sigblock(int mask){
+	rb_raise(rb_eNotImpError,"sigblock() function does not exist on VITA platform.");	
+	return -1;
+}
+int sigsetmask(int mask){
+	rb_raise(rb_eNotImpError,"sigsetmask() function does not exist on VITA platform.");	
+	return -1;
+}
+#endif
+
 #define FOREACH_SIGNAL(sig, offset) \
     for (sig = siglist + (offset); sig < siglist + numberof(siglist); ++sig)
 enum { LONGEST_SIGNAME = 7 }; /* MIGRATE and RETRACT */

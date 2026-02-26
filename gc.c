@@ -40,6 +40,8 @@
 #include "transient_heap.h"
 #include "mjit.h"
 
+#include "dlog.h"
+
 #undef rb_data_object_wrap
 
 #ifndef HAVE_MALLOC_USABLE_SIZE
@@ -84,6 +86,10 @@
 #if defined(_MSC_VER) && defined(_WIN64)
 #include <intrin.h>
 #pragma intrinsic(_umul128)
+#endif
+
+#ifdef __vita__
+#include "vita_mem_impl.h"
 #endif
 
 /* Expecting this struct to be eliminated by function inlinings */
@@ -4665,10 +4671,21 @@ static int
 stack_check(rb_execution_context_t *ec, int water_mark)
 {
     SET_STACK_END;
+/*CHECKME*/
+#ifdef __vita__
+    /* Let ec->tag be defined before crashing things. */
+    if (!ec->tag) return FALSE;
+#endif
 
     size_t length = STACK_LENGTH;
     size_t maximum_length = STACK_LEVEL_MAX - water_mark;
 
+#ifdef __vita__
+    // Vita uses to crash if maximun_lenght is too small
+    if (maximum_length < 128 * 1024 / sizeof(VALUE)) {
+        maximum_length = 1024 * 1024 / sizeof(VALUE);
+    }
+#endif
     return length > maximum_length;
 }
 #else
@@ -5007,8 +5024,23 @@ static void
 mark_stack_locations(rb_objspace_t *objspace, const rb_execution_context_t *ec,
 		     const VALUE *stack_start, const VALUE *stack_end)
 {
+/*CHECKME*/
+// So the f... now stack start and end works opposite to cont.c and machine.stack_start/end
+#if defined(__vita__) && !defined(VITA_MMAP_USE_MEMALIGN)
+    const VALUE *start = stack_start;
+    const VALUE *end = stack_end;
+    if (!start || !end) {
+        void *v_start = NULL, *v_end = NULL;
+        void *dummy;
+        vita_update_ruby_stack_limits(&dummy, &v_start, &v_end);
+        if (v_start) start = (const VALUE *)v_start;
+        if (v_end) end = (const VALUE *)v_end;
 
+    }
+    gc_mark_locations(objspace, start, end);
+#else
     gc_mark_locations(objspace, stack_start, stack_end);
+#endif
 
 #if defined(__mc68000__)
     gc_mark_locations(objspace,

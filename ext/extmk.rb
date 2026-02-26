@@ -429,6 +429,7 @@ MTIMES = [__FILE__, 'rbconfig.rb', srcdir+'/lib/mkmf.rb'].collect {|f| File.mtim
 
 # get static-link modules
 $static_ext = {}
+$setup_ext = nil
 if $extstatic
   $extstatic.each do |t|
     target = t
@@ -439,6 +440,9 @@ end
 for dir in ["ext", File::join($top_srcdir, "ext")]
   setup = File::join(dir, CONFIG['setup'])
   if File.file? setup
+    setup_base = File.basename(setup)
+    setup_filter = /\ASetup\./ =~ setup_base
+    setup_ext = {}
     f = open(setup)
     while line = f.gets()
       line.chomp!
@@ -454,13 +458,15 @@ for dir in ["ext", File::join($top_srcdir, "ext")]
       end
       target = target.downcase if File::FNM_SYSCASE.nonzero?
       $static_ext[target] = $static_ext.size
+      setup_ext[target] = true if setup_filter
     end
     MTIMES << f.mtime
     $setup = setup
+    $setup_ext = setup_filter ? setup_ext : nil
     f.close
     break
   end
-end unless $extstatic
+end
 
 @gemname = nil
 if ARGV[0]
@@ -511,6 +517,13 @@ cond = proc {|ext, *|
     with_config(ext, &cond)
   }
   incl.sort!
+  if $setup_ext
+    incl.select! do |ext|
+      $setup_ext.any? {|target,|
+        ext == target || ext.start_with?("#{target}/") || target.start_with?("#{ext}/")
+      }
+    end
+  end
   excl.sort!.collect! {|d| d+"/"}
   nil while incl.reject! {|d| excl << d+"/" if excl.any? {|x| d.start_with?(x)}}
   exts |= incl

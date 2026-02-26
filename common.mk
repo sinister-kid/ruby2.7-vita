@@ -146,6 +146,7 @@ COMMONOBJS    = array.$(OBJEXT) \
 		vm_backtrace.$(OBJEXT) \
 		vm_dump.$(OBJEXT) \
 		vm_trace.$(OBJEXT) \
+		$(PLATFORMOBJS) \
 		$(COROUTINE_OBJ) \
 		$(DTRACE_OBJ) \
 		$(BUILTIN_ENCOBJS) \
@@ -208,7 +209,8 @@ MAKE_LINK = $(MINIRUBY) -rfileutils -e "include FileUtils::Verbose" \
 
 all: $(SHOWFLAGS) main docs
 
-main: $(SHOWFLAGS) exts $(ENCSTATIC:static=lib)encs
+MAIN_POST_BUILD = $(LIBRUBY_WITH_EXTENSIONS:yes=rebuild-static-with-exts)
+main: $(SHOWFLAGS) exts $(ENCSTATIC:static=lib)encs $(MAIN_POST_BUILD)
 	@$(NULLCMD)
 
 mjit-headers: $(MJIT_SUPPORT)-mjit-headers
@@ -245,19 +247,19 @@ $(MJIT_MIN_HEADER:.h=)$(MJIT_HEADER_SUFFIX).h: \
 exts enc trans: $(SHOWFLAGS)
 showflags:
 	$(MESSAGE_BEGIN) \
-	"	BASERUBY = $(BASERUBY)" \
-	"	CC = $(CC)" \
-	"	LD = $(LD)" \
-	"	LDSHARED = $(LDSHARED)" \
-	"	CFLAGS = $(CFLAGS)" \
-	"	XCFLAGS = $(XCFLAGS)" \
-	"	CPPFLAGS = $(CPPFLAGS)" \
-	"	DLDFLAGS = $(DLDFLAGS)" \
-	"	SOLIBS = $(SOLIBS)" \
-	"	LANG = $(LANG)" \
-	"	LC_ALL = $(LC_ALL)" \
-	"	LC_CTYPE = $(LC_CTYPE)" \
-	"	MFLAGS = $(MFLAGS)" \
+	"BASERUBY = $(BASERUBY)" \
+	"CC = $(CC)" \
+	"LD = $(LD)" \
+	"LDSHARED = $(LDSHARED)" \
+	"CFLAGS = $(CFLAGS)" \
+	"XCFLAGS = $(XCFLAGS)" \
+	"CPPFLAGS = $(CPPFLAGS)" \
+	"DLDFLAGS = $(DLDFLAGS)" \
+	"SOLIBS = $(SOLIBS)" \
+	"LANG = $(LANG)" \
+	"LC_ALL = $(LC_ALL)" \
+	"LC_CTYPE = $(LC_CTYPE)" \
+	"MFLAGS = $(MFLAGS)" \
 	$(MESSAGE_END)
 	-@$(CC_VERSION)
 
@@ -353,6 +355,22 @@ $(STATIC_RUBY)$(EXEEXT): $(MAINOBJ) $(DLDOBJS) $(EXTOBJS) $(LIBRUBY_A)
 	$(Q)$(RM) $@
 	$(PURIFY) $(CC) $(MAINOBJ) $(DLDOBJS) $(LIBRUBY_A) $(MAINLIBS) $(EXTLIBS) $(LIBS) $(OUTFLAG)$@ $(LDFLAGS) $(XLDFLAGS)
 
+
+ENCS_OBJS = enc/encinit.$(OBJEXT) enc/encdb.$(OBJEXT) enc/trans/transdb.$(OBJEXT)
+
+.PHONY: eval-exts-objs
+eval-exts-objs:
+	$(eval $(shell $(MAKE) -f $(EXTS_MK) echo-exts-objs))
+	@echo 'EXTS_OBJS=$(EXTS_OBJS)'
+
+.PHONY: rebuild-static-with-exts
+rebuild-static-with-exts: exts $(ENCSTATIC:static=lib)encs $(LIBRUBY_A) eval-exts-objs
+	@echo "rebuilding $(LIBRUBY_A) with core + enc + ext objects"
+	@ENCS_OBJS="enc/encinit.$(OBJEXT) enc/encdb.$(OBJEXT) enc/trans/transdb.$(OBJEXT)"
+	$(RM) $(LIBRUBY_A)
+	$(Q) $(AR) $(ARFLAGS) $(LIBRUBY_A) $(LIBRUBY_A_OBJS) $(EXTS_OBJS) $(ENCS_OBJS) $(ARCHFILE)
+	@-$(RANLIB) $@ 2> /dev/null || true
+	
 ruby.imp: $(COMMONOBJS)
 	$(Q){ \
 	$(NM) -Pgp $(COMMONOBJS) | \

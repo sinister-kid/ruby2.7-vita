@@ -1,5 +1,5 @@
 # -*- makefile -*-
-V = 0
+V = 1
 Q1 = $(V:1=)
 Q = $(Q1:0=@)
 ECHO1 = $(V:1=@:)
@@ -64,6 +64,21 @@ deps.uniq!
 if objs = macros["EXTOBJS"] and objs.any? {|e|e.start_with?("ext/extinit.")}
   objs.delete_if {|e|e.start_with?("dmyext.")}
 end
+exts_objs = []
+(macros["extensions"] || []).each do |d|
+  d = d.chomp("/.")
+  mk = File.join(d, "Makefile")
+  next unless File.file?(mk)
+  m = File.read(mk)
+  objs = m[/^OBJS[ \t]*=[ \t]*(#{contpat})$/o, 1]
+  next unless objs
+  objs.gsub!(/\\\n[ \t]*/, ' ')
+  exts_objs.concat(objs.split.map {|o| File.join(d, o)})
+end
+extinit_obj = "ext/extinit.#{RbConfig::CONFIG['OBJEXT']}"
+exts_objs = exts_objs.uniq
+exts_objs.delete(extinit_obj)
+macros["EXTS_OBJS"] = [extinit_obj, *exts_objs]
 macros.default = [].freeze
 class Array
   def fold(h, w = 70)
@@ -152,6 +167,12 @@ ext/extinit.<%=objext%>:
 
 extso:
 	@echo EXTSO=$(EXTSO)
+
+echo-exts-objs:
+	@echo 'EXTS_OBJS:=$(EXTS_OBJS)'
+
+echo-exts-dirs:
+	@echo 'EXTDIRS:=$(patsubst %/.,%,$(extensions))'
 
 % notes.each_pair do |k, (d, n)|
 <%= k %>:<%= d.join(' ') %>

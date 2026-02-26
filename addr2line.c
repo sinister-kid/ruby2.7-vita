@@ -39,7 +39,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __vita__
+#include <stdlib.h>
+#else
 #include <sys/mman.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -130,6 +134,26 @@ void *alloca();
 #define DW_LNE_set_address              0x02
 #define DW_LNE_define_file              0x03
 #define DW_LNE_set_discriminator        0x04  /* DWARF4 */
+
+/*CHECK ME*/
+// Recheck if stubs are needed.
+#ifdef __vita__
+#define RTLD_NOW 0
+#define RTLD_LOCAL 0
+
+typedef struct {
+    void *dli_fbase;
+    const char *dli_fname;
+    void *dli_saddr;
+    const char *dli_sname;
+} Dl_info;
+
+void *dlopen(const char *filename, int flag) { return NULL; }
+void *dlsym(void *handle, const char *symbol) { return NULL; }
+int dlclose(void *handle) { return 0; }
+const char *dlerror(void) { return "dl not supported on Vita"; }
+int dladdr(const void *addr, Dl_info *info) { return 0; }
+#endif
 
 PRINTF_ARGS(static int kprintf(const char *fmt, ...), 1, 2);
 
@@ -1649,13 +1673,28 @@ fill_lines(int num_traces, void **traces, int check_debuglink,
 #endif
     lseek(fd, 0, SEEK_SET);
     /* async-signal unsafe */
+#ifdef __vita__
+    file = (char *)malloc(filesize);
+    if (!file) {
+        close(fd);
+        fprintf(stderr, "addr2line: out of memory allocating %zu bytes\n", filesize);
+        exit(1);
+    }
+    if (read(fd, file, filesize) != filesize) {
+        close(fd);
+        fprintf(stderr, "addr2line: failed to read %zu bytes\n", filesize);
+        free(file);
+        exit(1);
+    }
+#else
     file = (char *)mmap(NULL, (size_t)filesize, PROT_READ, MAP_SHARED, fd, 0);
     if (file == MAP_FAILED) {
-	int e = errno;
-	close(fd);
-	kprintf("mmap: %s\n", strerror(e));
-	goto fail;
+	    int e = errno;
+	    close(fd);
+	    kprintf("mmap: %s\n", strerror(e));
+	    goto fail;
     }
+#endif
     close(fd);
 
     ehdr = (ElfW(Ehdr) *)file;
@@ -1883,13 +1922,28 @@ fill_lines(int num_traces, void **traces, int check_debuglink,
 #endif
     lseek(fd, 0, SEEK_SET);
     /* async-signal unsafe */
+#ifdef __vita__
+    file = (char *)malloc(filesize);
+    if (!file) {
+        close(fd);
+        fprintf(stderr, "addr2line: out of memory allocating %zu bytes\n", filesize);
+        exit(1);
+    }
+    if (read(fd, file, filesize) != filesize) {
+        close(fd);
+        fprintf(stderr, "addr2line: failed to read %zu bytes\n", filesize);
+        free(file);
+        exit(1);
+    }
+#else
     file = (char *)mmap(NULL, (size_t)filesize, PROT_READ, MAP_SHARED, fd, 0);
     if (file == MAP_FAILED) {
-        int e = errno;
-        close(fd);
-        kprintf("mmap: %s\n", strerror(e));
-        goto fail;
+	    int e = errno;
+	    close(fd);
+	    kprintf("mmap: %s\n", strerror(e));
+	    goto fail;
     }
+#endif
     close(fd);
 
     obj->mapped = file;
@@ -2214,7 +2268,11 @@ next_line:
             }
         }
 	if (obj->mapped_size) {
-	    munmap(obj->mapped, obj->mapped_size);
+#ifdef __vita__
+        free(obj->mapped);
+#else
+        munmap(obj->mapped, obj->mapped_size);
+#endif 
 	}
 	obj = o->next;
 	free(o);

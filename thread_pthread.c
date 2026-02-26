@@ -48,6 +48,10 @@
 #  define USE_UBF_LIST 1
 #endif
 
+#ifdef __vita__
+#define getpagesize() 4096
+#endif
+
 /*
  * UBF_TIMER and ubf_list both use SIGVTALRM.
  *
@@ -591,7 +595,9 @@ Init_native_thread(rb_thread_t *th)
     th->thread_id = pthread_self();
     fill_thread_id_str(th);
     native_thread_init(th);
+#ifndef __vita__
     posix_signal(SIGVTALRM, null_func);
+#endif
 }
 
 static void

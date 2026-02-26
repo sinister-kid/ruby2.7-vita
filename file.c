@@ -151,6 +151,39 @@ int flock(int, int);
 #undef HAVE_REALPATH
 #endif
 
+
+#ifdef __vita__
+int fchown(int fd, uid_t owner, gid_t group) {
+  rb_raise(rb_eNotImpError,
+           "fchown() function does not exist on VITA platform.");
+  return -1;
+}
+
+mode_t umask(mode_t mask) {
+  rb_raise(rb_eNotImpError,
+           "umask() function does not exist on VITA platform.");
+  return -1;
+}
+
+struct passwd *getpwnam(const char *name) {
+  rb_raise(rb_eNotImpError,
+           "getpwnam() function does not exist on VITA platform.");
+  return NULL;
+}
+
+void endpwent(void) {
+  rb_raise(rb_eNotImpError,
+           "endpwent() function does not exist on VITA platform.");
+  return;
+}
+
+char *getlogin(void) {
+  rb_raise(rb_eNotImpError,
+           "getlogin() function does not exist on VITA platform.");
+  return NULL;
+}
+#endif
+
 #ifdef HAVE_REALPATH
 #include <limits.h>
 #include <stdlib.h>
@@ -3328,16 +3361,21 @@ static const char file_alt_separator[] = {FILE_ALT_SEPARATOR, '\0'};
 #define has_unc(buf) 0
 #endif
 
+/*CHECKME*/
 #ifdef DOSISH_DRIVE_LETTER
 static inline int
 has_drive_letter(const char *buf)
 {
-    if (ISALPHA(buf[0]) && buf[1] == ':') {
-	return 1;
+    if (ISALPHA(buf[0])) {
+#ifdef __vita__
+    if (buf[3] == ':') return 3;
+    if (buf[4] == ':') return 4;
+#else
+    if (buf[1] == ':')
+        return 1;
+#endif
     }
-    else {
-	return 0;
-    }
+    return 0;
 }
 
 #ifndef _WIN32
@@ -3370,12 +3408,19 @@ getcwdofdrv(int drv)
 #endif
 
 static inline int
-not_same_drive(VALUE path, int drive)
+not_same_drive(VALUE path, const char *drive)//int drive)
 {
     const char *p = RSTRING_PTR(path);
     if (RSTRING_LEN(path) < 2) return 0;
-    if (has_drive_letter(p)) {
-	return TOLOWER(p[0]) != TOLOWER(drive);
+    int drive_pos = has_drive_letter(p);
+    if (drive_pos) {
+#ifdef __vita__
+    for (int i = 0; i < drive_pos; i++) {
+    if (p[i] != drive[i]) return 0; 
+    }
+#else
+	return TOLOWER(p[0]) != TOLOWER(drive[0]);
+#endif
     }
     else {
 	return has_unc(p);
@@ -3387,7 +3432,12 @@ static inline char *
 skiproot(const char *path, const char *end, rb_encoding *enc)
 {
 #ifdef DOSISH_DRIVE_LETTER
+#ifdef __vita__
+    int drive_pos = has_drive_letter(path);
+    if (drive_pos && path + drive_pos <= end) path += drive_pos;
+#else
     if (path + 2 <= end && has_drive_letter(path)) path += 2;
+#endif
 #endif
     while (path < end && isdirsep(*path)) path++;
     return (char *)path;
@@ -3422,8 +3472,10 @@ rb_enc_path_skip_prefix(const char *path, const char *end, rb_encoding *enc)
     }
 #endif
 #ifdef DOSISH_DRIVE_LETTER
-    if (has_drive_letter(path))
-	return (char *)(path + 2);
+    int drive_end = has_drive_letter(path);
+    if (drive_end) {
+    return (char *)(path + drive_end + 1);
+    }
 #endif
 #endif
     return (char *)path;
@@ -3715,7 +3767,9 @@ rb_file_expand_path_internal(VALUE fname, VALUE dname, int abs_mode, int long_na
     fend = s + RSTRING_LEN(fname);
     enc = rb_enc_get(fname);
     BUFINIT();
-
+#ifdef __vita__
+    int drive_end = has_drive_letter(s);
+#endif
     if (s[0] == '~' && abs_mode == 0) {      /* execute only if NOT absolute_path() */
 	long userlen = 0;
 	if (isdirsep(s[1]) || s[1] == '\0') {
@@ -3752,8 +3806,17 @@ rb_file_expand_path_internal(VALUE fname, VALUE dname, int abs_mode, int long_na
     }
 #ifdef DOSISH_DRIVE_LETTER
     /* skip drive letter */
+#ifdef __vita__
+    else if (drive_end) {
+        drive_end+=1;
+	    BUFCHECK(bdiff + drive_end >= buflen);
+	    memcpy(p, s, drive_end);
+	    p += drive_end;
+	    s += drive_end;
+	    rb_enc_copy(result, fname);
+#else
     else if (has_drive_letter(s)) {
-	if (isdirsep(s[2])) {
+    if (isdirsep(s[2])) {
 	    /* specified drive letter, and full path */
 	    /* skip drive letter */
 	    BUFCHECK(bdiff + 2 >= buflen);
@@ -3765,7 +3828,7 @@ rb_file_expand_path_internal(VALUE fname, VALUE dname, int abs_mode, int long_na
 	else {
 	    /* specified drive, but not full path */
 	    int same = 0;
-	    if (!NIL_P(dname) && !not_same_drive(dname, s[0])) {
+	    if (!NIL_P(dname) && !not_same_drive(dname, s)) {//s[0])) {
 		rb_file_expand_path_internal(dname, Qnil, abs_mode, long_name, result);
 		BUFINIT();
 		if (has_drive_letter(p) && TOLOWER(p[0]) == TOLOWER(s[0])) {
@@ -3785,6 +3848,7 @@ rb_file_expand_path_internal(VALUE fname, VALUE dname, int abs_mode, int long_na
 	    p = chompdirsep(skiproot(buf, p, enc), p, enc);
 	    s += 2;
 	}
+#endif
     }
 #endif
     else if (!rb_is_absolute_path(s)) {

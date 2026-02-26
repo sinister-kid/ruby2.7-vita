@@ -21,6 +21,10 @@
 # include <errno.h>
 #endif
 
+#ifdef __vita__
+#include <sys/unistd.h>
+#endif
+
 #define BADEXIT -1
 
 int

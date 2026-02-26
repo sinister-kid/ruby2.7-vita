@@ -1,0 +1,49 @@
+#!/bin/bash
+
+##if [[ "$1" == "reconf" ]]; then
+##       autoreconf2.69
+##fi
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+export CHOST="arm-vita-eabi"
+export CC="arm-vita-eabi-gcc"
+export CXX="arm-vita-eabi-g++"
+
+## -DVITA_RUNTIME_PREFIXES Sets these paths for runtime, but can be added to flags to overwrite the default. Some escape \ needs to be added tho
+# VITA_EXEC_PREFIX="app0:"
+# VITA_LIB_PREFIX="ux0:data/ruby"
+
+export CFLAGS="-O3 -mthumb -march=armv7-a -mfpu=neon -mfloat-abi=hard -ffast-math -DNO_DEBUG -D__vita__ -D_GNU_SOURCE -DVITA_RUNTIME_PREFIXES"
+export XCFLAGS="-O3 -mthumb -march=armv7-a -mfpu=neon -mfloat-abi=hard -ffast-math -DNO_DEBUG -D__vita__ -D_GNU_SOURCE -DVITA_RUNTIME_PREFIXES"
+export LDFLAGS="-Wl,-q"
+export optflags=""
+
+export rb_cv_arflags=rcu
+
+## Aditional first search path can be defined here and added to configure command
+# VITA_SEARCH_PATH="app0:lib/ruby/2.7.0/"
+# --with-search-path="$VITA_SEARCH_PATH"
+
+## Will rebuild libruby-static.a to include extensions at the end of compilation, default enabled.
+# --enable/disable-libruby-with-exts
+
+## Use Vita's SceFiber for coroutine implementation is the default, can be changed to copy
+# --with-coroutine=[copy/scefiber]
+
+"$SCRIPT_DIR/configure" -C --host=$CHOST \
+              --prefix="$VITASDK/$CHOST" \
+              --cache-file=vita.cache \
+              --enable-install-static-library \
+              --with-setup=Setup.vita \
+              --disable-shared \
+              --with-static-linked-ext \
+              --enable-pthread=yes \
+              --disable-rubygems \
+              --disable-dln \
+              --disable-pie \
+              --without-valgrind \
+              --disable-fortify-source \
+              --disable-install-doc \
+              --disable-install-rdoc \
+              --disable-install-capi

@@ -23,6 +23,8 @@
 #include "ruby_atomic.h"
 #include "ccan/list/list.h"
 
+#include "dlog.h"
+
 /* non-Linux poll may not work on all FDs */
 #if defined(HAVE_POLL)
 #  if defined(__linux__)
@@ -168,6 +170,13 @@ off_t __syscall(quad_t number, ...);
 #  define RUBY_PIPE_NONBLOCK_DEFAULT    (0)
 #endif
 
+#ifdef __vita__
+int ioctl(int fd, unsigned long request, ...){
+	rb_raise(rb_eNotImpError, "ioctl() function does not exist on VITA platform.");
+	return -1;
+}
+#endif
+
 VALUE rb_cIO;
 VALUE rb_eEOFError;
 VALUE rb_eIOError;
@@ -293,6 +302,8 @@ rb_cloexec_open(const char *pathname, int flags, mode_t mode)
 {
     int ret;
     static int o_cloexec_state = -1; /* <0: unknown, 0: ignored, >0: working */
+
+    DLOG("rb_cloexec_open: path='%s', flags=0x%x, mode=0x%x", pathname, flags, (unsigned int)mode);
 
 #ifdef O_CLOEXEC
     /* O_CLOEXEC is available since Linux 2.6.23.  Linux 2.6.18 silently ignore it. */
@@ -7769,11 +7780,24 @@ rb_io_puts(int argc, const VALUE *argv, VALUE out)
 	line = rb_obj_as_string(argv[i]);
       string:
 	n = 0;
+    int slen = RSTRING_LEN(line);
+#ifdef __vita__
+    // Vita hangs on puts if line ends exactly with '\n'...
+    // But not if '\n' is in next argument.
+	if ((out == rb_stdout || out == rb_stderr) && 
+	        slen > 0 && 
+	        rb_str_end_with_asciichar(line, '\n')) {
+		args[n++] = rb_str_subseq(line, 0, slen - 1);
+		args[n++] = rb_default_rs;
+	} else {
+#endif
 	args[n++] = line;
-	if (RSTRING_LEN(line) == 0 ||
-            !rb_str_end_with_asciichar(line, '\n')) {
-	    args[n++] = rb_default_rs;
+	if (slen == 0 || !rb_str_end_with_asciichar(line, '\n')) {
+		args[n++] = rb_default_rs;
 	}
+#ifdef __vita__
+	}
+#endif
 	rb_io_writev(out, n, args);
     }
 

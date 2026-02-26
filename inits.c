@@ -15,6 +15,10 @@
 
 #define CALL(n) {void Init_##n(void); Init_##n();}
 
+#ifdef MKXPZ_PATCH
+void Init_ext();
+#endif
+
 void
 rb_call_inits(void)
 {
@@ -78,5 +82,9 @@ rb_call_inits(void)
     CALL(pack);
     CALL(warning);
     load_prelude();
+
+#ifdef MKXPZ_PATCH
+    CALL(ext);
+#endif
 }
 #undef CALL

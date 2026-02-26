@@ -48,6 +48,10 @@
 #include <sys/param.h>
 #endif
 
+#if defined(__vita__) && !defined(HAVE_GETRANDOM)
+#include <psp2/kernel/rng.h> 
+#endif
+
 typedef int int_must_be_32bit_at_least[sizeof(int) * CHAR_BIT < 32 ? -1 : 1];
 
 #include "missing/mt19937.c"
@@ -278,7 +282,7 @@ random_init(int argc, VALUE *argv, VALUE obj)
 
 #define DEFAULT_SEED_LEN (DEFAULT_SEED_CNT * (int)sizeof(int32_t))
 
-#if defined(S_ISCHR) && !defined(DOSISH)
+#if defined(S_ISCHR) && !defined(DOSISH) && !defined(__vita__)
 # define USE_DEV_URANDOM 1
 #else
 # define USE_DEV_URANDOM 0
@@ -430,6 +434,24 @@ fill_random_bytes_syscall(void *seed, size_t size, int need_secure)
     }
     return -1;
 }
+#elif defined(__vita__)
+#define MAX_RANDOM_SIZE (64)
+static int
+fill_random_bytes_syscall(void *seed, size_t size, int unused) 
+{
+    size_t offset = 0;
+    do {
+        size_t len = size < MAX_RANDOM_SIZE ? size : MAX_RANDOM_SIZE;
+        int ret = sceKernelGetRandomNumber(((char*)seed) + offset, len);
+        if (ret < 0) {
+        return -1;
+        }
+        offset += len;
+        size -= len;
+    } while (size > 0);
+    return 0;
+}
+#undef MAX_RANDOM_SIZE
 #else
 # define fill_random_bytes_syscall(seed, size, need_secure) -1
 #endif
