@@ -12,8 +12,9 @@ To build this some version of Ruby already installed in yout system is needed (p
 
 ```shell
 # Autoconf and configure project
-autoconf2.69
-./configure-vita
+autoreconf -i
+mkdir build && cd build
+../configure-vita
 
 # Compile code, elf and static lib
 make
