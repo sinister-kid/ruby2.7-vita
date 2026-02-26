@@ -210,7 +210,7 @@ MAKE_LINK = $(MINIRUBY) -rfileutils -e "include FileUtils::Verbose" \
 all: $(SHOWFLAGS) main docs
 
 MAIN_POST_BUILD = $(LIBRUBY_WITH_EXTENSIONS:yes=rebuild-static-with-exts)
-main: $(SHOWFLAGS) exts $(ENCSTATIC:static=lib)encs $(MAIN_POST_BUILD)
+main: $(SHOWFLAGS) exts $(ENCSTATIC:static=lib)encs $(MAIN_POST_BUILD) pkgconfig-data
 	@$(NULLCMD)
 
 mjit-headers: $(MJIT_SUPPORT)-mjit-headers
