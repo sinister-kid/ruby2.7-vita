@@ -12,7 +12,7 @@
 
 #ifdef __vita__
 
-#define MAX_MEM_BLOCKS 512
+#define MAX_MEM_BLOCKS 512 // How many are too many?
 
 static int block_count = 0;
 
@@ -27,7 +27,9 @@ static SceKernelLwMutexWork mutex;
 static int initialized = 0;
 
 static inline void vita_initialize_mem() {
+#ifndef VITA_MMAP_USE_MEMALIGN
     sceKernelCreateLwMutex(&mutex, "vita_mem_mutex", 0, 0, NULL);
+#endif
     initialized = 1;
 }
 
