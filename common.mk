@@ -210,7 +210,7 @@ MAKE_LINK = $(MINIRUBY) -rfileutils -e "include FileUtils::Verbose" \
 all: $(SHOWFLAGS) main docs
 
 MAIN_POST_BUILD = $(LIBRUBY_WITH_EXTENSIONS:yes=rebuild-static-with-exts)
-main: $(SHOWFLAGS) exts $(ENCSTATIC:static=lib)encs $(MAIN_POST_BUILD) pkgconfig-data
+main: $(SHOWFLAGS) exts $(ENCSTATIC:static=lib)encs $(MAIN_POST_BUILD)
 	@$(NULLCMD)
 
 mjit-headers: $(MJIT_SUPPORT)-mjit-headers
@@ -363,14 +363,25 @@ eval-exts-objs:
 	$(eval $(shell $(MAKE) -f $(EXTS_MK) echo-exts-objs))
 	@echo 'EXTS_OBJS=$(EXTS_OBJS)'
 
+.PHONY: eval-exts-libs
+eval-exts-libs:
+	$(eval $(shell $(MAKE) -f $(EXTS_MK) echo-exts-libs))
+	@echo 'EXTS_LIBS=$(EXTS_LIBS)'
+
 .PHONY: rebuild-static-with-exts
-rebuild-static-with-exts: exts $(ENCSTATIC:static=lib)encs $(LIBRUBY_A) eval-exts-objs
+rebuild-static-with-exts: exts $(ENCSTATIC:static=lib)encs $(LIBRUBY_A) eval-exts-objs pkgconfig-static-data
 	@echo "rebuilding $(LIBRUBY_A) with core + enc + ext objects"
 	@ENCS_OBJS="enc/encinit.$(OBJEXT) enc/encdb.$(OBJEXT) enc/trans/transdb.$(OBJEXT)"
 	$(RM) $(LIBRUBY_A)
 	$(Q) $(AR) $(ARFLAGS) $(LIBRUBY_A) $(LIBRUBY_A_OBJS) $(EXTS_OBJS) $(ENCS_OBJS) $(ARCHFILE)
 	@-$(RANLIB) $@ 2> /dev/null || true
-	
+
+.PHONY: pkgconfig-static-data
+pkgconfig-static-data: $(ruby_pc) eval-exts-libs
+	@UNIQUE_LIBS=$$(echo "$(MAINLIBS) $(EXTS_LIBS)" | awk -v RS=" |\n" '!seen[$$0]++ {printf "%s ", $$0}'); \
+	sed -i "s/^Libs: .*/Libs: ${LIBRUBY} $$UNIQUE_LIBS/" $(ruby_pc)
+	@$(NULLCMD)
+    
 ruby.imp: $(COMMONOBJS)
 	$(Q){ \
 	$(NM) -Pgp $(COMMONOBJS) | \

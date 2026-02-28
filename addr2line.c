@@ -113,8 +113,13 @@ void *alloca();
 #endif
 
 #ifndef PATH_MAX
+#ifdef __vita__
+#define PATH_MAX 256
+#else
 #define PATH_MAX 4096
 #endif
+#endif
+
 
 #define DW_LNS_copy                     0x01
 #define DW_LNS_advance_pc               0x02
@@ -135,24 +140,24 @@ void *alloca();
 #define DW_LNE_define_file              0x03
 #define DW_LNE_set_discriminator        0x04  /* DWARF4 */
 
-/*CHECK ME*/
-// Recheck if stubs are needed.
 #ifdef __vita__
-#define RTLD_NOW 0
-#define RTLD_LOCAL 0
-
+#ifndef RTLD_NOW
+#define RTLD_NOW 0x00002
+#endif
+#ifndef RTLD_LOCAL
+#define RTLD_LOCAL 0x0
+#endif
 typedef struct {
     void *dli_fbase;
     const char *dli_fname;
     void *dli_saddr;
     const char *dli_sname;
 } Dl_info;
-
-void *dlopen(const char *filename, int flag) { return NULL; }
-void *dlsym(void *handle, const char *symbol) { return NULL; }
-int dlclose(void *handle) { return 0; }
-const char *dlerror(void) { return "dl not supported on Vita"; }
-int dladdr(const void *addr, Dl_info *info) { return 0; }
+static void *dlopen(const char *filename, int flag) { return NULL; }
+static void *dlsym(void *handle, const char *symbol) { return NULL; }
+static int dlclose(void *handle) { return 0; }
+static const char *dlerror(void) { return "dl not supported on Vita"; }
+static int dladdr(const void *addr, Dl_info *info) { return 0; }
 #endif
 
 PRINTF_ARGS(static int kprintf(const char *fmt, ...), 1, 2);

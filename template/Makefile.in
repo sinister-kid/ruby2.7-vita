@@ -105,7 +105,7 @@ MJIT_HEADER_BUILD_DIR = $(EXTOUT)/include/$(arch)
 LDFLAGS = @STATIC@ $(CFLAGS) @LDFLAGS@
 EXTLDFLAGS = @EXTLDFLAGS@
 XLDFLAGS = @XLDFLAGS@ $(EXTLDFLAGS)
-EXTLIBS =
+EXTLIBS = @EXTLIBS@
 LIBS = @LIBS@ $(EXTLIBS)
 MISSING = @LIBOBJS@ @ALLOCA@
 ENABLE_SHARED = @ENABLE_SHARED@
@@ -310,6 +310,7 @@ $(LIBRUBY_$(LIBRUBY_WITH_EXT)): $(LIBRUBY_SO_UPDATE)
 ruby_pc = @ruby_pc@
 ruby.pc: $(ruby_pc)
 $(ruby_pc): config.status
+		@$(RM) $@
 		@./config.status --file=$@:$(srcdir)/template/ruby.pc.in
 
 ruby-runner.h: template/ruby-runner.h.in config.status

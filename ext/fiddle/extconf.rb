@@ -130,6 +130,9 @@ end
 have_header 'sys/mman.h'
 
 if have_header "dlfcn.h"
+  if RUBY_PLATFORM =~ /vita/
+    $libs << " -ltaihen_stub -lSceKernelModulemgr_stub -lSceSblSsMgr_stub "
+  end
   have_library "dl"
 
   %w{ dlopen dlclose dlsym }.each do |func|

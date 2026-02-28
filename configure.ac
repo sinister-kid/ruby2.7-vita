@@ -265,6 +265,7 @@ AC_SUBST(LD)
 AS_IF([test "$GCC" = yes], [
     linker_flag=-Wl,
     : ${optflags=-O3}
+    AS_CASE(["$target_os"], [*vita*], [optflags=-O3; debugflags=])
     gcc_major=`echo =__GNUC__ | $CC -E -xc - | sed '/^=/!d;s///'`
     gcc_minor=`echo =__GNUC_MINOR__ | $CC -E -xc - | sed '/^=/!d;s///'`
     test -n "$gcc_major" || gcc_major=0
@@ -1059,6 +1060,11 @@ main()
 		])
 		],
 [*vita*],[	LIBS="-lm $LIBS"
+		RUBY_APPEND_OPTION(CPPFLAGS, -D_GNU_SOURCE -D__vita__ -DVITA_RUNTIME_PREFIXES -DNO_DEBUG)
+		AC_ARG_WITH([vita-float-abi],
+			AS_HELP_STRING([--with-vita-float-abi=ABI], [specify ARM float ABI for Vita (hard/softfp) @<:@default=hard@:>@]),
+			[vita_float_abi="$withval"], [vita_float_abi="hard"])
+		ARCH_FLAG="-march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=$vita_float_abi $ARCH_FLAG"
 		rb_cv_stack_grow_dir_arm=-1
 		ac_cv_func_fork=no
 		ac_cv_func_fork_works=no
@@ -3061,6 +3067,7 @@ AC_SUBST(EXTSTATIC)dnl
 AC_ARG_WITH(static-linked-ext,
 	    AS_HELP_STRING([--with-static-linked-ext], [link external modules statically]),
             [AS_CASE([$withval],[yes],[STATIC=;EXTSTATIC=static],[no],[],[EXTSTATIC="$withval"])])
+AS_CASE(["$target_os"], [*vita*], [STATIC=-static; EXTSTATIC=static])
 AS_CASE([",$EXTSTATIC,"], [,static,|*,enc,*], [
   ENCOBJS='enc/encinit.$(OBJEXT) enc/libenc.$(LIBEXT) enc/libtrans.$(LIBEXT)'
   EXTOBJS='ext/extinit.$(OBJEXT)'
@@ -3220,6 +3227,7 @@ ENABLE_SHARED=no
 AC_ARG_ENABLE(shared,
        AS_HELP_STRING([--enable-shared], [build a shared library for Ruby]),
        [enable_shared=$enableval])
+AS_CASE(["$target_os"], [*vita*], [enable_shared=no])
 libprefix=${multiarch+'$(archlibdir)'}${multiarch-'$(libdir)'}
 LIBRUBY_RELATIVE=${load_relative-no}
 AS_CASE("$enable_shared", [yes], [
@@ -3330,6 +3338,7 @@ AS_CASE("$enable_shared", [yes], [
   AC_ARG_ENABLE(pie,
           AS_HELP_STRING([--disable-pie], [disable PIE feature]),
           [pie=$enableval], [pie=])
+  AS_CASE(["$target_os"], [*vita*], [pie=no])
   AS_IF([test "$GCC" = yes -a -z "$EXTSTATIC" -a "x$pie" != xno], [
     RUBY_TRY_CFLAGS(-fPIE, [pie=yes], [pie=no])
     AS_IF([test "$pie" = yes], [
@@ -3507,6 +3516,7 @@ AC_ARG_ENABLE(install-static-library,
 	AS_IF([test x"$enable_shared" = xyes],
 	    [INSTALL_STATIC_LIBRARY=no],
 	    [INSTALL_STATIC_LIBRARY=yes]))
+AS_CASE(["$target_os"], [*vita*], [INSTALL_STATIC_LIBRARY=yes])
 AC_SUBST(INSTALL_STATIC_LIBRARY)
 
 AC_ARG_ENABLE([libruby-with-exts],
@@ -3534,6 +3544,7 @@ DLNOBJ=dln.o
 AC_ARG_ENABLE(dln,
 	      AS_HELP_STRING([--disable-dln], [disable dynamic link feature]),
 	      [test "$enableval" = yes || DLNOBJ=dmydln.o])
+AS_CASE(["$target_os"], [*vita*], [DLNOBJ=dmydln.o])
 AC_SUBST(DLNOBJ)
 MINIDLNOBJ=dmydln.o
 
@@ -3753,6 +3764,7 @@ AC_SUBST(DLDLIBS)
 AC_SUBST(DLDSHARED)
 AC_SUBST(ENABLE_SHARED)
 AC_SUBST(MAINLIBS)
+AC_SUBST(EXTLIBS)
 AC_SUBST(COMMON_LIBS)
 AC_SUBST(COMMON_MACROS)
 AC_SUBST(COMMON_HEADERS)

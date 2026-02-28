@@ -55,5 +55,5 @@ Description: Object Oriented Script Language
 Version: ${ruby_version}
 URL: https://www.ruby-lang.org
 Cflags: -I${rubyarchhdrdir} -I${rubyhdrdir}
-Libs: ${LIBRUBYARG}
+Libs: ${LIBRUBYARG} ${LIBS}
 Requires:
