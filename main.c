@@ -33,8 +33,8 @@
 #include <stdlib.h>
 #endif
 #ifdef __vita__
-//unsigned int _newlib_heap_size = 192 * 1024 * 1024;
-//unsigned int sceLibcHeapSize = 32 * 1024 * 1024;
+unsigned int _newlib_heap_size = 90 * 1024 * 1024; // Random sizes
+unsigned int sceLibcHeapSize = 16 * 1024 * 1024;  // To much fors test?
 #endif
 
 
@@ -48,7 +48,7 @@ main(int argc, char **argv)
     setlocale(LC_CTYPE, "C");
 #endif
 #ifdef __vita__
-    const char* new_argv[] = { "main", "ux0:/data/ruby/fiber_test.rb" };
+    const char* new_argv[] = { "main", "app0:main.rb" };
 	argv = (char**)new_argv;
 	argc = 2;
 #endif
