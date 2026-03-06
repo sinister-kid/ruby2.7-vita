@@ -44,9 +44,9 @@ LIBPATH=@LIBPATH@
 LIBRUBY_A=@LIBRUBY_A@
 LIBRUBY_SO=@LIBRUBY_SO@
 LIBRUBY=@LIBRUBY@
+LIBRUBYARG=@LIBRUBYARG@
 LIBRUBYARG_SHARED=@LIBRUBYARG_SHARED@
 LIBRUBYARG_STATIC=@LIBRUBYARG_STATIC@
-LIBRUBYARG=@LIBRUBYARG@
 LIBS=@LIBS@
 DLDFLAGS=@DLDFLAGS@
 
@@ -55,5 +55,5 @@ Description: Object Oriented Script Language
 Version: ${ruby_version}
 URL: https://www.ruby-lang.org
 Cflags: -I${rubyarchhdrdir} -I${rubyhdrdir}
-Libs: -L${libdir} -l${RUBY_SO_NAME}
+Libs: -L${libdir} @LIBRUBYARG@
 Libs.private: @MAINLIBS@ @LIBS@

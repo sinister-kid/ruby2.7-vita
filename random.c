@@ -439,6 +439,7 @@ fill_random_bytes_syscall(void *seed, size_t size, int need_secure)
 static int
 fill_random_bytes_syscall(void *seed, size_t size, int unused) 
 {
+    (void)unused;
     size_t offset = 0;
     do {
         size_t len = size < MAX_RANDOM_SIZE ? size : MAX_RANDOM_SIZE;

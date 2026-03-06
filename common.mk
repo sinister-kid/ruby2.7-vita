@@ -379,7 +379,7 @@ rebuild-static-with-exts: exts $(ENCSTATIC:static=lib)encs $(LIBRUBY_A) eval-ext
 .PHONY: pkgconfig-static-data
 pkgconfig-static-data: $(ruby_pc) eval-exts-libs
 	@UNIQUE_LIBS=$$(echo "$(MAINLIBS) $(EXTS_LIBS)" | awk -v RS=" |\n" '!seen[$$0]++ {printf "%s ", $$0}'); \
-	sed -i "s/^Libs: .*/Libs: ${LIBRUBY} $$UNIQUE_LIBS/" $(ruby_pc)
+	sed -i "s/^Libs.private: .*/Libs.private: $$UNIQUE_LIBS/" $(ruby_pc)
 	@$(NULLCMD)
     
 ruby.imp: $(COMMONOBJS)

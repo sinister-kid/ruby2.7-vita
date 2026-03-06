@@ -24,13 +24,13 @@ json
 json/generator
 json/parser
 #nkf
-objspace
+#objspace
 #openssl
 #pathname
 #psych
 #pty
 #racc/cparse
-rbconfig/sizeof
+#rbconfig/sizeof
 #readline
 #ripper
 #sdbm

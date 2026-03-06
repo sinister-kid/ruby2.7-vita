@@ -1072,6 +1072,7 @@ main()
 		ac_cv_func_setpgid=no
 		ac_cv_func_setsid=no
 		ac_cv_func_setpgrp=no
+		ac_cv_c_bigendian=no
 		],
 [	LIBS="-lm $LIBS"])
 : ${ORIG_LIBS=$LIBS}
@@ -1223,7 +1224,12 @@ AS_CASE(["$target_os"],
 	])
     ])
 
-AC_C_BIGENDIAN
+AS_CASE(["$target_os"], [vita*], [], [
+    AC_C_BIGENDIAN([], [], [], [
+	AC_DEFINE([AC_APPLE_UNIVERSAL_BUILD], 1,
+	    [Define if building universal (internal helper macro)])
+    ])
+])
 AC_C_CONST
 AC_C_CHAR_UNSIGNED
 AC_C_INLINE
@@ -3168,10 +3174,10 @@ AC_SUBST(BOOTSTRAPRUBY)
 AC_SUBST(EXTOUT, [${EXTOUT=.ext}])
 
 FIRSTMAKEFILE=""
-LIBRUBY_A='lib$(RUBY_SO_NAME)-static.a'
-LIBRUBY='$(LIBRUBY_A)'
-LIBRUBYARG_STATIC='-l$(RUBY_SO_NAME)-static'
-LIBRUBYARG='$(LIBRUBYARG_STATIC)'
+LIBRUBY='lib$(RUBY_SO_NAME)'
+LIBRUBY_A='$(LIBRUBY).a'
+LIBRUBYARG='-l$(RUBY_SO_NAME)'
+LIBRUBYARG_STATIC='$(LIBRUBYARG)'
 SOLIBS='$(MAINLIBS)'
 
 AS_CASE(["$target_os"],

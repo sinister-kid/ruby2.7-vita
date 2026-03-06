@@ -28,4 +28,4 @@ export rb_cv_arflags=rcu
               --disable-install-doc \
               CC=${CHOST}-gcc \
               CXX=${CHOST}-g++ \
-              CFLAGS="-O3 -DNO_DEBUG"
+              CFLAGS="-O3 -DNO_DEBUG -DMKXPZ_PATCH"
